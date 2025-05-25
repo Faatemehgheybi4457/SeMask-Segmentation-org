@@ -404,29 +404,6 @@ class SWSeMaskBlock(nn.Module):
         return sem_map, x
 
 
-class ChannelAttention(nn.Module):
-    """ Channel-Wise Attention (CA)
-    Args:
-        dim (int): Number of input channels.
-        reduction (int): Reduction ratio for channel-wise attention.
-    """
-    def __init__(self, dim, reduction=16):
-        super(ChannelAttention, self).__init__()
-        self.fc1 = nn.Linear(dim, dim // reduction, bias=False)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(dim // reduction, dim, bias=False)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        b, n, c = x.size()  # (B, N, C)
-        y = torch.mean(x, dim=1)  # Global average pooling: (B, C)
-        y = self.fc1(y)
-        y = self.relu(y)
-        y = self.fc2(y)
-        y = self.sigmoid(y).unsqueeze(1)  # (B, 1, C)
-        return x * y  # Apply channel-wise attentionّ
-
-
 class SeMaskBlock(nn.Module):
     """ Swin Transformer Block.
     Args:
@@ -603,9 +580,6 @@ class BasicLayer(nn.Module):
                                                     window_size=sem_window_size)
             
 
-        # Add Channel-Wise Attention
-        self.channel_attention = ChannelAttention(dim)
-
         # patch merging layer
         if downsample is not None:
             self.downsample = downsample(dim=dim, norm_layer=norm_layer)
@@ -651,9 +625,6 @@ class BasicLayer(nn.Module):
         if self.num_sem_blocks > 0:
             self.semantic_layer.H, self.semantic_layer.W = H, W
             seg_map, x = self.semantic_layer(x)
-
-            # Apply Channel-Wise Attention on SWSeMaskBlock output
-            x = self.channel_attention(x)
         else:
             seg_map = None
 
